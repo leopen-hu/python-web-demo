@@ -1,2 +1,2 @@
-msg = "Hello World"
-print(msg)
+name = input('Please enter your name: ')
+print('Hello,', name + '.', 'Welcome to python world!')
