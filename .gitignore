@@ -102,3 +102,6 @@ ENV/
 
 # virtualenv
 virtualenv/
+
+# editor settings
+.vscode/
