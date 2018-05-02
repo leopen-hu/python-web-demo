@@ -1,0 +1,5 @@
+日志时间：2018-05-02 10:24:07,607 [42]
+日志级别：INFO
+异常位置：Xinfengxiang.Funds.BL.FinancePaymentApplyManage.Query
+日志内容：CHEN.GAO
+Hello,Python3!Hello,Python3!Hello,Python3!Hello,Python3!Hello,Python3!Hello,Python3!
