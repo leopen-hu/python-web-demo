@@ -61,3 +61,10 @@ extra_info = {
     'job': 'coder'
 }
 person('Leopen', 26, **extra_info)
+
+
+def fx(a, *args, **kw):
+    print('a:', a, '*args:', *args, 'kw:', kw)
+
+
+fx(5, 6, 7, x=7)
