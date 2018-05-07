@@ -27,17 +27,18 @@ async def create_pool(loop, **kw):
     logging.info('create database connection pool...')
     global __pool
     __pool = await aiomysql.create_pool(
-        host=ke.get('host', 'localhost'),
+        host=kw.get('host', 'localhost'),
         port=kw.get('port', 3306),
         user=kw['user'],
-        password=kw['password']
-        db=kw['db']
-        charset=kw.get('charset', 'utf-8'),
+        password=kw['password'],
+        db=kw['db'],
+        charset=kw.get('charset', 'utf8'),
         autocommit=kw.get('autocommit', True),
         maxsize=kw.get('maxsize', 10),
         minsize=kw.get('minsize', 1),
         loop=loop
     )
+    print('create_pool:', __pool)
 
 
 async def select(sql, args, size=None):
@@ -60,6 +61,7 @@ async def execute(sql, args):
     with (await __pool) as conn:
         try:
             cur = await conn.cursor()
+            print('sql:', sql.replace('?', '%s'), '\nargs:', args)
             await cur.execute(sql.replace('?', '%s'), args)
             affected = cur.rowcount
             await cur.close()
@@ -71,7 +73,7 @@ async def execute(sql, args):
 def create_args_string(max):
     l = []
     for n in range(max):
-        l.append['?']
+        l.append('?')
     return ', '.join(l)
 
 
@@ -119,7 +121,7 @@ class TextField(Field):
         super().__init__(name, 'text', False, default)
 
 
-class ModalMetaclass(type):
+class ModelMetaclass(type):
     def __new__(cls, name, bases, attrs):
         if name == 'Model':
             return type.__new__(cls, name, bases, attrs)
@@ -143,7 +145,7 @@ class ModalMetaclass(type):
             raise RuntimeError('Primary key not found.')
         for k in mappings.keys():
             attrs.pop(k)
-        escaped_fields = list(map(lambda f: repr(f), fields))
+        escaped_fields = list(map(lambda f: '`%s`' % f, fields))
         attrs['__mappings__'] = mappings
         attrs['__table__'] = table_name
         attrs['__primary_key__'] = primary_key
@@ -154,8 +156,8 @@ class ModalMetaclass(type):
                 escaped_fields=', '.join(escaped_fields),
                 table=table_name))
         attrs['__insert__'] = (
-            'insert into {table} ({primary_key}, {escaped_fields}) '
-            'values ({values_str})').format(
+            'INSERT INTO `{table}` ({escaped_fields}, `{primary_key}`) '
+            'VALUES ({values_str})').format(
             table=table_name,
             primary_key=primary_key,
             escaped_fields=', '.join(escaped_fields),
@@ -164,11 +166,12 @@ class ModalMetaclass(type):
             'update {table} set {key_values_str} where {primary_key}=?'.format(
                 table=table_name,
                 key_values_str=', '.join(map(lambda f: '{key}=?'.format(
-                    k=repr(mappings.get(f).name or f)), fields)),
+                    key=repr(mappings.get(f).name or f)), fields)),
                 primary_key=primary_key))
         attrs['__delete__'] = (
             'delete from {table} where {primary_key}=?'.format(
                 table=table_name, primary_key=primary_key))
+        return type.__new__(cls, name, bases, attrs)
 
 
 class Model(dict, metaclass=ModelMetaclass):
@@ -254,9 +257,10 @@ class Model(dict, metaclass=ModelMetaclass):
             return None
         return re[0]
 
-    @classmethod
     async def save(self):
-        args = list(map(self.getValueOrDefault, self.__fields__))
+        args = list(
+            map(lambda x: self.getValueOrDefault(x), self.__fields__))
+        # args = list()
         args.append(self.getValueOrDefault(self.__primary_key__))
         rows = await execute(self.__insert__, args)
         if rows != 1:
@@ -264,7 +268,6 @@ class Model(dict, metaclass=ModelMetaclass):
                 'failed to insert recode: affected rows: {rows}'.format(
                     rows=rows))
 
-    @classmethod
     async def update(self):
         args = list(map(self.getValue, self.__fields__))
         args.append(self.getValue(self.__primary_key__))
@@ -275,8 +278,7 @@ class Model(dict, metaclass=ModelMetaclass):
                 'affected rows: {rows}'.format(
                     rows=rows))
 
-    @classmethod
-    async def remove():
+    async def remove(self):
         args = [self.getValue(self.__primary_key__)]
         rows = await execute(self.__delete__, args)
         if rows != 1:
